@@ -1,0 +1,222 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../lib/pure-jpeg"
+
+def usage
+  puts <<~USAGE
+    Usage: pure-jpeg <command> [options]
+
+    Commands:
+      decode <input.jpg> [options]   Decode a JPEG file
+        --info                       Show image metadata
+        --out <file>                 Write raw RGB data to file
+
+      encode <input.rgb> [options]   Encode raw RGB data to JPEG
+        --width <n>                  Image width (required)
+        --height <n>                 Image height (required)
+        --quality <n>                JPEG quality 1-100 (default: 85)
+        --subsampling <type>         420 or 444 (default: 420)
+        --out <file>                 Output JPEG file (required)
+
+      resize <input.jpg> [options]   Resize a JPEG file
+        --width <n>                  Target width
+        --height <n>                 Target height
+        --fit <W>x<H>               Fit within bounds (maintain aspect ratio)
+        --fill <W>x<H>              Fill exact size (crop to fit)
+        --interpolation <type>       bilinear or nearest (default: bilinear)
+        --quality <n>                Output JPEG quality (default: 85)
+        --out <file>                 Output JPEG file (required)
+
+      benchmark <input.jpg>          Benchmark decoding vs system tools
+
+      version                        Show version
+  USAGE
+  exit 1
+end
+
+def cmd_decode(args)
+  input = nil
+  info_only = false
+  output = nil
+
+  i = 0
+  while i < args.size
+    case args[i]
+    when "--info"
+      info_only = true
+    when "--out"
+      i += 1
+      output = args[i]
+    else
+      input = args[i]
+    end
+    i += 1
+  end
+
+  usage unless input
+
+  unless File.exist?(input)
+    $stderr.puts "Error: file not found: #{input}"
+    exit 1
+  end
+
+  start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  image = Pure::Jpeg.decode(input)
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+
+  if info_only
+    puts "File:   #{input}"
+    puts "Width:  #{image.width}"
+    puts "Height: #{image.height}"
+    puts "Pixels: #{image.width * image.height}"
+    puts "Size:   #{File.size(input)} bytes"
+    puts "Decode: #{'%.3f' % elapsed}s"
+  elsif output
+    File.binwrite(output, image.pixels)
+    puts "Wrote #{image.pixels.bytesize} bytes of raw RGB to #{output}"
+    puts "Decode time: #{'%.3f' % elapsed}s"
+  else
+    puts "Decoded #{input}: #{image.width}x#{image.height} in #{'%.3f' % elapsed}s"
+  end
+end
+
+def cmd_encode(args)
+  input = nil
+  width = nil
+  height = nil
+  quality = 85
+  subsampling = :s420
+  output = nil
+
+  i = 0
+  while i < args.size
+    case args[i]
+    when "--width"
+      i += 1; width = args[i].to_i
+    when "--height"
+      i += 1; height = args[i].to_i
+    when "--quality"
+      i += 1; quality = args[i].to_i
+    when "--subsampling"
+      i += 1
+      subsampling = args[i] == "444" ? :s444 : :s420
+    when "--out"
+      i += 1; output = args[i]
+    else
+      input = args[i]
+    end
+    i += 1
+  end
+
+  unless input && width && height && output
+    $stderr.puts "Error: encode requires input file, --width, --height, and --out"
+    usage
+  end
+
+  unless File.exist?(input)
+    $stderr.puts "Error: file not found: #{input}"
+    exit 1
+  end
+
+  raw = File.binread(input)
+  image = Pure::Jpeg::Image.new(width, height, raw)
+
+  start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  size = Pure::Jpeg.encode(image, output, quality: quality, subsampling: subsampling)
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+
+  puts "Encoded #{width}x#{height} to #{output} (#{size} bytes) in #{'%.3f' % elapsed}s"
+end
+
+def cmd_resize(args)
+  input = nil
+  width = nil
+  height = nil
+  fit = nil
+  fill = nil
+  interpolation = :bilinear
+  quality = 85
+  output = nil
+
+  i = 0
+  while i < args.size
+    case args[i]
+    when "--width"
+      i += 1; width = args[i].to_i
+    when "--height"
+      i += 1; height = args[i].to_i
+    when "--fit"
+      i += 1; fit = args[i]
+    when "--fill"
+      i += 1; fill = args[i]
+    when "--interpolation"
+      i += 1
+      interpolation = args[i] == "nearest" ? :nearest : :bilinear
+    when "--quality"
+      i += 1; quality = args[i].to_i
+    when "--out"
+      i += 1; output = args[i]
+    else
+      input = args[i]
+    end
+    i += 1
+  end
+
+  unless input && output
+    $stderr.puts "Error: resize requires input file and --out"
+    usage
+  end
+
+  unless File.exist?(input)
+    $stderr.puts "Error: file not found: #{input}"
+    exit 1
+  end
+
+  start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  image = Pure::Jpeg.decode(input)
+
+  if fit
+    fw, fh = fit.split("x").map(&:to_i)
+    resized = image.resize_fit(fw, fh, interpolation: interpolation)
+  elsif fill
+    fw, fh = fill.split("x").map(&:to_i)
+    resized = image.resize_fill(fw, fh, interpolation: interpolation)
+  elsif width && height
+    resized = image.resize(width, height, interpolation: interpolation)
+  else
+    $stderr.puts "Error: specify --width/--height, --fit, or --fill"
+    usage
+  end
+
+  size = Pure::Jpeg.encode(resized, output, quality: quality)
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+
+  puts "Resized #{image.width}x#{image.height} -> #{resized.width}x#{resized.height} to #{output} (#{size} bytes) in #{'%.3f' % elapsed}s"
+end
+
+def cmd_benchmark(args)
+  input = args[0]
+  usage unless input
+
+  require_relative "../benchmark/decode_benchmark"
+  DecodeBenchmark.run(input)
+end
+
+case ARGV[0]
+when "decode"
+  cmd_decode(ARGV[1..])
+when "encode"
+  cmd_encode(ARGV[1..])
+when "resize"
+  cmd_resize(ARGV[1..])
+when "benchmark"
+  cmd_benchmark(ARGV[1..])
+when "version", "--version", "-v"
+  puts "pure-jpeg #{Pure::Jpeg::VERSION}"
+when nil, "help", "--help", "-h"
+  usage
+else
+  $stderr.puts "Unknown command: #{ARGV[0]}"
+  usage
+end
