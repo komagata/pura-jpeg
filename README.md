@@ -62,9 +62,10 @@ pura-jpeg resize input.jpg --fit 800x600 --out fitted.jpg
 
 ### Encode
 
-| Encoder | Time |
-|---------|------|
-| **pura-jpeg** | **243 ms** |
+| Encoder | Time | vs ffmpeg |
+|---------|------|-----------|
+| ffmpeg (C) | 62 ms | — |
+| **pura-jpeg** | **238 ms** | 3.8× slower |
 
 ### Full pipeline (decode → resize → encode)
 
