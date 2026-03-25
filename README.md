@@ -46,6 +46,36 @@ pura-jpeg resize input.jpg --width 200 --height 200 --out thumb.jpg
 pura-jpeg resize input.jpg --fit 800x600 --out fitted.jpg
 ```
 
+## Benchmark
+
+400×400 image, Ruby 4.0.2 + YJIT.
+
+### Decode
+
+| Decoder | Time | Language |
+|---------|------|----------|
+| jpeg-js (V8 JIT) | 39 ms | Pure JavaScript |
+| jpeg-js (`--jitless`) | 143 ms | Pure JavaScript (interpreter) |
+| ffmpeg (C) | 55 ms | C |
+| **pura-jpeg** | **304 ms** | **Pure Ruby** |
+| ptjd | 5,448 ms | Pure Tcl |
+
+### Encode
+
+| Encoder | Time |
+|---------|------|
+| **pura-jpeg** | **243 ms** |
+
+### Full pipeline (decode → resize → encode)
+
+| Operation | Time |
+|-----------|------|
+| Decode | 304 ms |
+| Encode (quality 85) | 243 ms |
+| Full pipeline | ~547 ms |
+
+pura-jpeg is **2× faster than ptjd** (Tcl) and within **2× of jpeg-js running without JIT**. These are the only three pure scripting-language JPEG implementations that exist — Python, Perl, PHP, and Lua all rely on C extensions.
+
 ## Why pure Ruby?
 
 - **`gem install` and go** — no `brew install`, no `apt install`, no C compiler needed
@@ -54,37 +84,18 @@ pura-jpeg resize input.jpg --fit 800x600 --out fitted.jpg
 - **Perfect for dev/CI** — no ImageMagick or libvips setup. `rails new` → image upload → it just works
 - **Unix philosophy** — one format, one gem, composable
 
-## Benchmark
-
-Decode performance on a 400×400 baseline JPEG. Only pure implementations in scripting languages — no C extensions, no compiled languages.
-
-| Decoder | Time | Language |
-|---------|------|---------|
-| jpeg-js (V8 JIT) | 36 ms | Pure JavaScript |
-| jpeg-js (`--jitless`) | 143 ms | Pure JavaScript (interpreter) |
-| **pura-jpeg** (+YJIT) | **188 ms** | **Pure Ruby** |
-| pura-jpeg | 291 ms | Pure Ruby (interpreter) |
-| ptjd | 5,448 ms | Pure Tcl |
-
-Tested on Ruby 4.0.2 + YJIT. These are the only three pure scripting-language JPEG implementations that exist. Python, Perl, PHP, and Lua all rely on C extensions.
-
-### Full pipeline (Ruby 4.0.2 + YJIT, 400×400)
-
-| Operation | Time |
-|-----------|------|
-| Decode | 188 ms |
-| Encode (quality 85) | 211 ms |
-| Resize (400→200) | 37 ms |
-| Resize + Encode | 74 ms |
-
 ## Related gems
 
 | Gem | Format | Status |
 |-----|--------|--------|
 | **pura-jpeg** | JPEG | ✅ Available |
-| pura-png | PNG | 🔜 Planned |
-| pura-webp | WebP | 🔜 Planned |
-| pura-gif | GIF | 🔜 Planned |
+| [pura-png](https://github.com/komagata/pura-png) | PNG | ✅ Available |
+| [pura-bmp](https://github.com/komagata/pura-bmp) | BMP | ✅ Available |
+| [pura-gif](https://github.com/komagata/pura-gif) | GIF | ✅ Available |
+| [pura-tiff](https://github.com/komagata/pura-tiff) | TIFF | ✅ Available |
+| [pura-ico](https://github.com/komagata/pura-ico) | ICO | ✅ Available |
+| [pura-webp](https://github.com/komagata/pura-webp) | WebP | ✅ Available |
+| [pura-image](https://github.com/komagata/pura-image) | All formats | ✅ Available |
 
 ## License
 
