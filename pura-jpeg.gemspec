@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "lib/pure/jpeg/version"
+require_relative "lib/pura/jpeg/version"
 
 Gem::Specification.new do |spec|
   spec.name = "pura-jpeg"
