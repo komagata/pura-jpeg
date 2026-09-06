@@ -1,6 +1,6 @@
 # pura-jpeg
 
-A pure Ruby JPEG decoder/encoder with zero C extension dependencies.
+A pure Ruby JPEG decoder/encoder without additional image-processing libraries.
 
 Part of the **pura-*** series — pure Ruby image codec gems.
 
@@ -10,7 +10,7 @@ Part of the **pura-*** series — pure Ruby image codec gems.
 - Image resizing (bilinear / nearest-neighbor interpolation)
 - Huffman coding, fast integer IDCT/FDCT, YCbCr ↔ RGB conversion
 - 4:2:0, 4:2:2, and 4:4:4 chroma subsampling
-- No native extensions, no FFI, no external dependencies
+- No image-specific native extension or FFI dependency
 - CLI tool included
 
 ## Installation
@@ -48,6 +48,8 @@ pura-jpeg resize input.jpg --fit 800x600 --out fitted.jpg
 
 ## Benchmark
 
+These historical measurements include ffmpeg process startup. They do not compare against an in-process C codec or establish Rails pipeline throughput.
+
 400×400 image, Ruby 4.0.2 + YJIT.
 
 ### Decode
@@ -75,13 +77,10 @@ pura-jpeg resize input.jpg --fit 800x600 --out fitted.jpg
 | Encode (quality 85) | 243 ms |
 | Full pipeline | ~547 ms |
 
-pura-jpeg is **2× faster than ptjd** (Tcl) and within **2× of jpeg-js running without JIT**. These are the only three pure scripting-language JPEG implementations that exist — Python, Perl, PHP, and Lua all rely on C extensions.
 
 ## Why pure Ruby?
 
 - **`gem install` and go** — no `brew install`, no `apt install`, no C compiler needed
-- **Works everywhere Ruby works** — CRuby, ruby.wasm, mruby, JRuby, TruffleRuby
-- **Edge/Wasm ready** — runs in Cloudflare Workers, browsers (via ruby.wasm), sandboxed environments where you can't install system libraries
 - **Perfect for dev/CI** — no ImageMagick or libvips setup. `rails new` → image upload → it just works
 - **Unix philosophy** — one format, one gem, composable
 
@@ -97,6 +96,12 @@ pura-jpeg is **2× faster than ptjd** (Tcl) and within **2× of jpeg-js running 
 | [pura-ico](https://github.com/komagata/pura-ico) | ICO | ✅ Available |
 | [pura-webp](https://github.com/komagata/pura-webp) | WebP | ✅ Available |
 | [pura-image](https://github.com/komagata/pura-image) | All formats | ✅ Available |
+
+## Pixel model and limitations
+
+Images contain 8-bit RGB pixels. Baseline JPEG only; progressive JPEG is unsupported. EXIF orientation and color profiles are not applied or retained. `decode` accepts a file path or a binary JPEG string.
+
+`crop(x, y, width, height)` requires integer coordinates, positive dimensions, and a region entirely inside the image; invalid regions raise `ArgumentError`.
 
 ## License
 
