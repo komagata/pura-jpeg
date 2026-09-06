@@ -29,7 +29,11 @@ module Pura
       end
 
       def self.decode(input)
-        data = input.is_a?(String) && File.exist?(input) ? File.binread(input) : input
+        data = if input.is_a?(String) && !input.include?("\0") && input.bytesize < 4096 && File.exist?(input)
+                 File.binread(input)
+               else
+                 input
+               end
         new(data).decode
       end
 
@@ -527,7 +531,7 @@ module Pura
         0,  1, 8, 16, 9, 2, 3, 10,
         17, 24, 32, 25, 18, 11, 4, 5,
         12, 19, 26, 33, 40, 48, 41, 34,
-        27, 20, 13,  6,  7, 14, 21, 28,
+        27, 20, 13, 6,  7, 14, 21, 28,
         35, 42, 49, 56, 57, 50, 43, 36,
         29, 22, 15, 23, 30, 37, 44, 51,
         58, 59, 52, 45, 38, 31, 39, 46,
